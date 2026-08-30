@@ -23,6 +23,12 @@ class FlashcardApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.indigo,
         brightness: Brightness.light,
+        // Căn chỉnh cỡ chữ NavigationBar để "Trắc nghiệm" không bị rớt dòng gây lệch icon
+        navigationBarTheme: NavigationBarThemeData(
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, overflow: TextOverflow.ellipsis),
+          ),
+        ),
       ),
       home: const MainHomeScreen(),
     );
@@ -75,7 +81,7 @@ class Flashcard {
 }
 
 // -----------------------------------------------------------------------------
-// MAIN HOME SCREEN WITH BOTTOM NAVIGATION & ANIMATION MIXIN
+// MAIN HOME SCREEN WITH BOTTOM NAVIGATION & ANIMATION
 // -----------------------------------------------------------------------------
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({super.key});
@@ -96,7 +102,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // Animation Controller cho hiệu ứng lật thẻ
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
 
@@ -107,7 +112,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     _initNotifications();
     _loadData();
 
-    // Khởi tạo animation 3D Lật thẻ
     _flipController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -123,7 +127,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     super.dispose();
   }
 
-  // Thao tác Lật thẻ
   void _toggleCardFlip() {
     if (_showAnswer) {
       _flipController.reverse();
@@ -135,7 +138,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     });
   }
 
-  // 1. TÍNH NĂNG: ĐỌC PHÁT ÂM (TTS)
   void _initTTS() async {
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setSpeechRate(0.45);
@@ -155,7 +157,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     }
   }
 
-  // 2. THÔNG BÁO NHẮC HỌC
   void _initNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
@@ -186,7 +187,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     }
   }
 
-  // LƯU & TẢI DỮ LIỆU
   void _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     final String? cardsJson = prefs.getString('flashcards');
@@ -252,6 +252,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     _saveData();
   }
 
+  // TÍNH NĂNG IMPORT TỪ EXCEL: Nhận diện dấu Tab (\t) khi copy 2 cột trên Excel/Google Sheets
   void _bulkAddCards(String rawText, String defaultCategory) {
     final lines = rawText.split('\n');
     int addedCount = 0;
@@ -260,7 +261,10 @@ class _MainHomeScreenState extends State<MainHomeScreen>
       if (line.trim().isEmpty) continue;
 
       List<String> parts = [];
-      if (line.contains('-')) {
+      // Kiểm tra tab \t trước để hỗ trợ Excel, sau đó mới tới các dấu phân cách khác
+      if (line.contains('\t')) {
+        parts = line.split('\t');
+      } else if (line.contains('-')) {
         parts = line.split('-');
       } else if (line.contains(':')) {
         parts = line.split(':');
@@ -353,7 +357,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
   }
 
   // ===========================================================================
-  // TAB 1: THẺ HỌC + ANIMATION LẬT THẺ 3D
+  // TAB 1: THẺ HỌC
   // ===========================================================================
   int _currentCardIndex = 0;
   bool _showAnswer = false;
@@ -403,7 +407,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           ),
           const SizedBox(height: 16),
 
-          // KHỐI THẺ HỌC CÓ HIỆU ỨNG LẬT 3D
           Expanded(
             child: GestureDetector(
               onTap: _toggleCardFlip,
@@ -415,7 +418,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
 
                   return Transform(
                     transform: Matrix4.identity()
-                      ..setEntry(3, 2, 0.001) // Chiều sâu 3D
+                      ..setEntry(3, 2, 0.001)
                       ..rotateY(angle),
                     alignment: Alignment.center,
                     child: isFront
@@ -442,7 +445,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           ),
           const SizedBox(height: 16),
 
-          // CÁC NÚT ĐÁNH GIÁ ĐỘ KHÓ ANKI SRS
+          // NÚT ĐÁNH GIÁ ĐỌC GỌN (ĐÃ BỎ "1 NGÀY", "2 NGÀY")
           if (_showAnswer) ...[
             const Text(
               'Đánh giá độ khó:',
@@ -451,16 +454,16 @@ class _MainHomeScreenState extends State<MainHomeScreen>
             const SizedBox(height: 10),
             Row(
               children: [
-                _srsButton('Rất khó\n(1 ngày)', Colors.red.shade600, () {
+                _srsButton('Rất khó', Colors.red.shade600, () {
                   _updateCardSRS(card, 1, false);
                 }),
-                _srsButton('Khó\n(3 ngày)', Colors.orange.shade800, () {
+                _srsButton('Khó', Colors.orange.shade800, () {
                   _updateCardSRS(card, 3, false);
                 }),
-                _srsButton('Tốt\n(5 ngày)', Colors.blue.shade700, () {
+                _srsButton('Tốt', Colors.blue.shade700, () {
                   _updateCardSRS(card, 5, false);
                 }),
-                _srsButton('Dễ\n(Thuộc)', Colors.green.shade700, () {
+                _srsButton('Dễ', Colors.green.shade700, () {
                   _updateCardSRS(card, 7, true);
                 }),
               ],
@@ -481,7 +484,6 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     );
   }
 
-  // WIDGET DỰNG MẶT THẺ (TRƯỚC / SAU)
   Widget _buildCardFace({
     required String category,
     required String text,
@@ -547,7 +549,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           style: ElevatedButton.styleFrom(
             backgroundColor: color,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 2,
           ),
@@ -555,7 +557,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
           child: Text(
             text,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.2),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
       ),
@@ -563,7 +565,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
   }
 
   void _updateCardSRS(Flashcard card, int days, bool markLearned) {
-    _flipController.value = 0.0; // Reset vị trí thẻ về mặt trước cho từ tiếp theo
+    _flipController.value = 0.0;
     setState(() {
       card.SRSIntervalDays = days;
       card.nextReviewDate = DateTime.now().add(Duration(days: days));
@@ -862,9 +864,9 @@ class _MainHomeScreenState extends State<MainHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.library_add, color: Colors.indigo),
-              title: const Text('Thêm từ hàng loạt'),
-              subtitle: const Text('Nhập danh sách từ nhanh qua văn bản'),
+              leading: const Icon(Icons.table_chart, color: Colors.indigo),
+              title: const Text('Thêm từ hàng loạt (Excel)'),
+              subtitle: const Text('Copy 2 cột Từ & Nghĩa trên Excel dán vào đây'),
               onTap: () {
                 Navigator.pop(ctx);
                 _showBulkAddDialog();
@@ -909,6 +911,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
     );
   }
 
+  // DIALOG HỖ TRỢ COPY TRỰC TIẾP TỪ EXCEL / GOOGLE SHEETS
   void _showBulkAddDialog() {
     final bulkController = TextEditingController();
     final catController = TextEditingController(text: 'Từ vựng');
@@ -923,8 +926,8 @@ class _MainHomeScreenState extends State<MainHomeScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Cú pháp mỗi dòng: [Từ mới] - [Nghĩa]\nVí dụ:\nApple - Quả táo\nBanana - Quả chuối',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                '📌 Cách dùng:\n1. Chọn 2 cột (Từ & Nghĩa) trên Excel / Google Sheets rồi bấm Ctrl+C.\n2. Dán (Ctrl+V) trực tiếp vào ô bên dưới.\n(Hoặc nhập theo cú pháp: Từ - Nghĩa)',
+                style: TextStyle(fontSize: 12, color: Colors.black87),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -939,7 +942,7 @@ class _MainHomeScreenState extends State<MainHomeScreen>
                 controller: bulkController,
                 maxLines: 8,
                 decoration: const InputDecoration(
-                  hintText: 'Nhập danh sách từ tại đây...',
+                  hintText: 'Dán dữ liệu từ Excel vào đây...',
                   border: OutlineInputBorder(),
                 ),
               ),
